@@ -1,25 +1,52 @@
+# Всё что связано с парсингом
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium import common
 from time import sleep
 
+# Всё что связано с голосом
+import speech_recognition as sr
+from speech_recognition import UnknownValueError
+from fuzzywuzzy import process
+
 chrome_options = Options()
-chrome_options.add_argument("--headless")
-driver = webdriver.Chrome(options=chrome_options)
-driver = webdriver.Chrome()
-language = {
-    "ru": ["русский", "russian"],
-    "en": ["английский", "english"],
+chrome_options.add_argument("--headless")  # Скрытый режим браузера
+driver = webdriver.Chrome(options=chrome_options)  # открываем окно браузера в скрытом режиме
+# driver = webdriver.Chrome()
+
+r = sr.Recognizer()  # Распознавание речи
+
+opts = {
+    "language": {
+        "ru": ("русский", "russian"),
+        "en": ("английский", "english")
+    },
+    "otv": {"a_yes": 'да', "a_no": 'нет', "Я не знаю": "a_dont_know", "a_probably": 'возможно частично',
+            "a_probaly_not": 'скорее нет не совсем', "end_game": 'закончить игру'},
+    "menu": {"a_propose_yes": "a_propose_no", "Нет": 'нет'}
 }
 
 
-def get_key(d, value):  # Функция поиска ключа если несколько значений
-    for k, v in d.items():
-        for i in v:
-            if i == value:
-                return k
-    return False
+def listener():  # Распознавание речи
+    r = sr.Recognizer()
+    with sr.Microphone(device_index=1) as sourse:
+        audio = r.listen(sourse)
+        try:
+            querty = r.recognize_google(audio, language="ru-RU")
+            print(querty)
+        except UnknownValueError:
+            print(1)
+            querty = listener()
+    return querty.lower()
+
+
+def comparison(arr):
+    name = process.extractOne(listener(), arr)
+    while name[1] < 80:  # Проверка на правильный ввод
+        name = process.extractOne(listener(), arr)
+    print(name)
+    return name
 
 
 def main(lan="ru"):  # определяем язык бота
@@ -45,23 +72,16 @@ def game():
             flag = False
         if not flag:
             break
-
-        html_list = driver.find_element(by=By.CLASS_NAME, value="database-selection")
-        items = html_list.find_elements(by=By.TAG_NAME, value="li")
-        otv = {"a_yes": [items[0].text],
-               "a_no": [items[1].text],
-               "a_dont_know": [items[2].text],
-               "a_probably": [items[3].text],
-               "a_probaly_not": [items[4].text]}  # Список возможных  ответов
-        print(otv)
-
-        name = input()
-        while not get_key(otv, name):  # Проверка на правильный ввод
-            name = input()
-        print(name)
-        driver.find_element(By.ID, get_key(otv, name)).click()  # отвечаем на вопрос
+        sleep(3)
+        print("otvet")
+        name = comparison(opts["otv"])
+        if name[2] == "end_game":
+            driver.close()
+            break
+        driver.find_element(By.ID, name[2]).click()  # отвечаем на вопрос
         # driver.close()
-    end_game()
+    if not (name[2] == "end_game"):
+        end_game()
 
 
 def end_game():
@@ -73,48 +93,30 @@ def end_game():
         by=By.TAG_NAME, value="img"
     ).get_attribute('src')
     print(image)
-    html_list = driver.find_element(by=By.CLASS_NAME, value="proposal-answers")
-    items = html_list.find_elements(by=By.TAG_NAME, value="a")
-    otv = {
-        "a_propose_yes": [items[0].text],
-        "a_propose_no": [items[1].text]
-    }
-    print(otv)  # я угадал?  Да\Нет
 
-    name = input()
-    while not get_key(otv, name):
-        name = input()
-    if name == "Да":
-        driver.find_element(By.ID, get_key(otv, name)).click()
+    print(opts["menu"])  # я угадал?  Да\Нет
+    name = comparison(opts["menu"])
+    if name[2] == "a_propose_yes":
+        driver.find_element(By.ID, name[2]).click()
         print("Хотите Начать новую игру?")
-        otv = {
-            "Да": ["Да"],
-            "Нет": ["Нет"]
-        }
-        name = input()
-        while not get_key(otv, name):
-            name = input()
-        if name == "Да":
+
+        name = comparison(opts["menu"])
+        if name[0] == "a_propose_yes":
             main()
         else:
             driver.close()
     else:  # Если нет
-        driver.find_element(By.ID, get_key(otv, name)).click()
+        driver.find_element(By.ID, name[2]).click()
         print(driver.find_element(by=By.CLASS_NAME, value="sub-bubble-propose").text)  # Желаете ли вы продолжить?
-        otv = {
-            "a_continue_yes": ["Да"],
-            "a_continue_no": ["Нет"]
-        }
         print("Закончить игру?")
-        name = input()
-        while not get_key(otv, name):
-            name = input()
-        if name == "Да":
-            driver.find_element(By.ID, get_key(otv, name)).click()
+
+        name = comparison(opts["menu"])
+        if name == "a_propose_yes":
+            driver.find_element(By.ID, name).click()
             game()
         else:
             driver.close()
 
 
 if __name__ == "__main__":
-    main(get_key(language, input()))
+    main(comparison(opts["language"])[2])
