@@ -6,21 +6,38 @@ from selenium import common
 from time import sleep
 
 # Всё что связано с голосом
-import speech_recognition as sr
+import speech_recognition as sr  # Распознавание речи
 from speech_recognition import UnknownValueError
-from fuzzywuzzy import process
-import pyttsx3
+
+from fuzzywuzzy import process  # частичное сравнение
+
+import pyttsx3  # голос бота
+
+import random  # для вывода рандомных картинок
+
+import sqlite3 as sq  # для базы данных с серверами
 
 
 class Bot:
     def __init__(self):
+        # Таблица с серверами и количеством использования бота
+        with sq.connect("discord_bot.db") as self.con:
+            cur = self.con.cursor()
+            cur.execute("""CREATE TABLE IF NOT EXISTS Top_servers (
+                id INTEGER auto_increment primary key,
+                name TEXT,
+                number_of_uses TEXT
+                )""")
+        self.con.commit()
+
         self.chrome_options = Options()
         self.chrome_options.add_argument("--headless")  # Скрытый режим браузера
         self.driver = webdriver.Chrome(options=self.chrome_options)  # открываем окно браузера в скрытом режиме
         self.driver = webdriver.Chrome()
 
-        self.golos = pyttsx3.init()
+        self.golos = pyttsx3.init()  # голос бота
 
+        # словарь со всеми командами и вариантами ответов
         self.opts = {
             "language": {
                 "ru": ("русский", "russian"),
@@ -30,17 +47,18 @@ class Bot:
                     "a_probaly_not": 'скорее нет не совсем', "end_game": 'закончить игру'},
             "menu": {"a_propose_yes": "a_propose_no", "Нет": 'нет'}
         }
-        self.main(self.comparison(self.opts["language"])[2])
+        # self.main(self.comparison(self.opts["language"])[2]) # Акинатор
+        self.png()  # Рандомная картинка
 
     def listener(self):  # Распознавание речи
         r = sr.Recognizer()
-        with sr.Microphone(device_index=1) as sourse:
+        with sr.Microphone() as sourse:
             audio = r.listen(sourse)
             try:
                 sentence = r.recognize_google(audio, language="ru-RU")
-                print(sentence)
+                print(sentence)  # то что услышал бот
             except UnknownValueError:
-                print(1)
+                print(1)  # бот ничего не услышал перезапуск функции
                 sentence = self.listener()
         return sentence.lower()
 
@@ -121,6 +139,19 @@ class Bot:
                 self.game()
             else:
                 self.driver.close()
+
+    def png(self):
+        self.driver.get("https://yandex.ru/")
+        search = self.driver.find_element(by=By.XPATH, value='//*[@id="text"]')
+        search.send_keys(input())
+        search.submit()
+        sleep(2)
+        self.driver.find_elements(by=By.CLASS_NAME, value="service__name")[1].click()
+        sleep(5)
+        self.driver.switch_to.window(self.driver.window_handles[1])
+        v = self.driver.find_elements(by=By.CSS_SELECTOR, value="div.serp-item__preview")[1:]
+        print(v[random.randint(0, len(v))].find_element(by=By.TAG_NAME, value="img"
+                                                        ).get_attribute('src'))
 
 
 if __name__ == "__main__":
