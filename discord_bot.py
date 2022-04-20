@@ -1,18 +1,13 @@
 import discord
 from discord.ext import commands, tasks
-import sympy
-import os, platform
-from discord.utils import get
-import threading
-
-from threading import Thread
-
-from parserr import Ass_bot
+from parserr import Ass_bot, Picture
 
 client = discord.Client()
-
 bot = commands.Bot(command_prefix='!')
 bot_Aki = Ass_bot()
+bot_meme = Picture()
+flag_2 = False
+flag_3 = False
 
 
 @bot.command(name='join', help='Tells the bot to join the voice channel')
@@ -34,32 +29,10 @@ async def leave(ctx):
         await ctx.send("The bot is not connected to a voice channel.")
 
 
-@bot.command(name='t')
-async def test(ctx, text):
-    flag = bot_Aki.comparison(text, bot_Aki.opts["otv"])[2]
-    if not flag:
-        await ctx.send('Неверный ввод', tts=True)
-    elif flag == "end_game":
-        await ctx.send("Игра закончена", tts=True)
-    else:
-        bot_Aki.otvet(flag)
-        b = bot_Aki.question()
-        if b:
-            await ctx.send(b, tts=True)
-        else:
-            a, b = bot_Aki.end_game()
-            await ctx.send(a, tts=True)
-            await ctx.send(b)
-            await ctx.send("Я угадал?")
-            flag = bot_Aki.comparison(text, bot_Aki.opts["menu"])[2]
-            if flag == "a_propose_yes":
-                bot_Aki.menu_win(flag)
-                flag = bot_Aki.comparison(text, bot_Aki.opts["menu"])[2]
-
-
 @bot.command(name='start_akinator')
 async def start_akinator(ctx, text):
-    print(ctx)
+    global flag_2
+    bot_Aki.__init__()
     flag = bot_Aki.comparison(text, bot_Aki.opts["language"])
     print(flag)
     if not flag:
@@ -70,41 +43,49 @@ async def start_akinator(ctx, text):
         flag = bot_Aki.question()
         if flag:
             await ctx.send(flag, tts=True)
-        # if flag == "end_game":
-        #     bot_Aki.end_game().picture()
-        #     await ctx.send(bot_Aki.end_game().picture(), tts=True)
-        # else:
-        #     await ctx.send(flag, tts=True)
+            flag_2 = True
+
+
+@bot.command(name='t')
+async def test(ctx, text):
+    global flag_2, flag_3
+    if flag_2:  # Основной цикл программы вопрос ответ
+        flag = bot_Aki.comparison(text, bot_Aki.opts["otv"])[2]
+        if not flag:  # Если неверный ввод
+            await ctx.send('Неверный ввод', tts=True)
+        elif flag == "end_game":  # закончить игру
+            await ctx.send("Игра закончена", tts=True)
+            flag_2 = False
+        else:
+            bot_Aki.otvet(flag)
+            b = bot_Aki.question()
+            if b:
+                await ctx.send(b, tts=True)
+            else:
+                a, b, flag_2 = bot_Aki.end_game()
+                await ctx.send(a, tts=True)
+                await ctx.send(b)
+                await ctx.send("Я угадал?", tts=True)
+                flag_3 = True
+    elif (not flag_2) or flag_3:  # Угадал да или нет
+        flag = bot_Aki.comparison(text, bot_Aki.opts["menu"])[2]
+        print(flag)
+        if flag == "a_propose_no":
+            await ctx.send("Продолжение", tts=True)
+            bot_Aki.f()
+            flag_3, flag_2 = False, True
+            await ctx.send(bot_Aki.question(), tts=True)
+        else:
+            await ctx.send("Игра окончена", tts=True)
+            flag_3, flag_2 = False, False
+    else:
+        await ctx.send("Ваша команда не может быть выполнена", tts=True)
 
 
 @bot.command(name='meme')
 async def meme(ctx, text):
-    await ctx.send(bot_Aki.png(text))
+    bot_meme.__init__()
+    await ctx.send(bot_meme.png(text))
 
 
-# @bot.command(aliases=['paly', 'queue', 'que'])
-# async def play(ctx):
-#     guild = ctx.guild
-#     voice_client: discord.VoiceClient = discord.utils.get(bot.voice_clients, guild=guild)
-#     audio_source = discord.FFmpegPCMAudio('Нервы.mp3')
-#     if not voice_client.is_playing():
-#         voice_client.play(audio_source, after=None)
-
-
-# @bot.event
-# async def on_ready():
-#     print(f'We have logged in as {client.user}')
-#
-#
-# @bot.event
-# async def on_message(message):
-#     if message.author == bot.user:
-#         return
-#     if message.content[0] == '!':
-#         bot.command()
-#     s = message.content
-#     # if message.content.startswith('$hello'):
-#     await message.channel.send(s)
-
-
-bot.run('OTY1MzMxOTk0MDkzNDQ5Mjk2.Ylxpeg.pJ68mNIkGlabjjarGT1lT5BQoxE')
+bot.run('OTY1MzMxOTk0MDkzNDQ5Mjk2.Ylxpeg.8hG9cDizSYOGbSDTUIMvhJ8TS2w')
