@@ -131,7 +131,6 @@ class Bot:
             self.speak(self.driver.find_element(by=By.CLASS_NAME,
                                                 value="sub-bubble-propose").text)  # Желаете ли вы продолжить?
             self.speak("Закончить игру?")
-
             name = self.comparison(self.opts["menu"])
             if name == "a_propose_yes":
                 self.driver.find_element(By.ID, name).click()

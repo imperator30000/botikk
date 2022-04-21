@@ -4,38 +4,19 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium import common
 from time import sleep
-
-# Всё что связано с голосом
-import speech_recognition as sr  # Распознавание речи
-from speech_recognition import UnknownValueError
-
 from fuzzywuzzy import process  # частичное сравнение
-
-import pyttsx3  # голос бота
-
 import random  # для вывода рандомных картинок
-
-import sqlite3 as sq  # для базы данных с серверами
 
 
 class Ass_bot:
-    def __init__(self):
-        self.otvet_text = ''
-        # Таблица с серверами и количеством использования бота
-        with sq.connect("discord_bot.db") as self.con:
-            cur = self.con.cursor()
-            cur.execute("""CREATE TABLE IF NOT EXISTS Top_servers (
-                id INTEGER auto_increment primary key,
-                name TEXT,
-                number_of_uses TEXT
-                )""")
-        self.con.commit()
-
-        # self.chrome_options = Options()
-        # self.chrome_options.add_argument("--headless")  # Скрытый режим браузера
-        # self.driver = webdriver.Chrome(options=self.chrome_options)  # открываем окно браузера в скрытом режиме
+    def __init__(self, name):
+        name = str(name)
+        self.name = name
+        self.run = False
+        self.chrome_options = Options()
+        self.chrome_options.add_argument("--headless")  # Скрытый режим браузера
+        self.driver = webdriver.Chrome(options=self.chrome_options)  # открываем окно браузера в скрытом режиме
         # self.driver = webdriver.Chrome()
-        self.golos = pyttsx3.init()  # голос бота
 
         # словарь со всеми командами и вариантами ответов
         self.opts = {
@@ -45,28 +26,8 @@ class Ass_bot:
             },
             "otv": {"a_yes": 'да', "a_no": 'нет', "Я не знаю": "a_dont_know", "a_probably": 'возможно частично',
                     "a_probaly_not": 'скорее нет не совсем', "end_game": 'закончить игру'},
-            "menu": {"a_propose_yes": "a_propose_no", "Нет": 'нет'}
+            "menu": {"a_propose_yes": "да", "a_propose_no": "нет"}
         }
-        # self.main(self.comparison(self.opts["language"])[2]) # Акинатор
-        # self.png()  # Рандомная картинка
-
-    # def chek(self,  text):
-    #     for key in self.opts["language"]:
-    #         for i in self.opts['language'][key]:
-    #             if text == i:
-    #                 return key
-
-    # def listener(self):  # Распознавание речи
-    #     r = sr.Recognizer()
-    #     with sr.Microphone() as sourse:
-    #         audio = r.listen(sourse)
-    #         try:
-    #             sentence = r.recognize_google(audio, language="ru-RU")
-    #             print(sentence)  # то что услышал бот
-    #         except UnknownValueError:
-    #             print(1)  # бот ничего не услышал перезапуск функции
-    #             sentence = self.listener()
-    #     return sentence.lower()
 
     def comparison(self, text, arr):  # функция проверки ответа пользователя
         name = process.extractOne(text, arr)
@@ -77,97 +38,93 @@ class Ass_bot:
         return name
 
     def main(self, lan="ru"):  # определяем язык бота
-        global driver
-        driver = webdriver.Chrome()
-        driver.get(f"https://" + lan + ".akinator.com")
-        sleep(5)  # Даём сайту полностью  загрузится
+        self.driver.get(f"https://" + lan + ".akinator.com")
+        self.run = True
+        sleep(3)  # Даём сайту полностью  загрузится
         try:
-            driver.find_element(By.CLASS_NAME, "btn-play").click()  # Начинаем игру
+            self.driver.find_element(By.CLASS_NAME, "btn-play").click()  # Начинаем игру
         except common.exceptions.ElementNotInteractableException:
-            driver.find_elements(by=By.CLASS_NAME, value="modal-content")[1].find_element(
+            self.driver.find_elements(by=By.CLASS_NAME, value="modal-content")[1].find_element(
                 by=By.CLASS_NAME, value="modal-header").find_element(
                 by=By.CLASS_NAME, value="close").click()
-            sleep(2)
-            driver.find_element(By.CLASS_NAME, "btn-play").click()
-        print(driver.current_url)
+            sleep(3)
+            self.driver.find_element(By.CLASS_NAME, "btn-play").click()
+        print(self.driver.current_url)
         self.question()
 
-    # def speak(self, text):
-    #     self.golos.say(text)
-    #     self.golos.runAndWait()
-
     def otvet(self, text):
-        global driver
         sleep(3)
         if text == "end_game":
-            driver.quit()
+            self.driver.quit()
+            self.run = False
             return "end_game"
         if text:
-            driver.find_element(By.ID, text).click()  # отвечаем на вопрос
+            self.driver.find_element(By.ID, text).click()  # отвечаем на вопрос
             return True
-        # driver.close()
 
     def question(self):
-        global driver
         sleep(3)
         try:  # проверяем идёт ли у нас игра или нет
             # Если не смогли получить вопрос выходим из цикла игра
-            question = driver.find_element(by=By.CLASS_NAME, value="bubble-body").text
+            question = self.driver.find_element(by=By.CLASS_NAME, value="bubble-body").text
             return question  # Вопрос
         except common.exceptions.NoSuchElementException:
-            return False
+            return False  # Не удалось получить вопрос
 
     def end_game(self):
-        global driver
         sleep(3)
-        who_1 = driver.find_element(by=By.CLASS_NAME, value="sub-bubble-propose").text  # Я думаю это
-        who_2 = driver.find_element(by=By.CLASS_NAME, value="proposal-title").text  # Имя персонажа
+
+        who_1 = self.driver.find_element(by=By.CLASS_NAME, value="sub-bubble-propose").text  # Я думаю это
+        who_2 = self.driver.find_element(by=By.CLASS_NAME, value="proposal-title").text  # Имя персонажа
         m = who_1.lower() + " " + who_2
-        image = driver.find_element(by=By.CLASS_NAME, value='proposal-area').find_element(
+        image = self.driver.find_element(by=By.CLASS_NAME, value='proposal-area').find_element(
             by=By.TAG_NAME, value="img"
         ).get_attribute('src')
-        return m, image  # имя +  картинка
+        return m, image, False  # имя +  картинка + запрет на переход  в первую  часть функции
 
     def nuw_game(self, name):
-        global driwer
         if name == "a_propose_yes":
-            self.main()
+            return True, False
         else:
-            driver.quit()
+            self.run = False
+            self.driver.quit()
+            return False, False
 
-    def menu_win(self, name):
-        global driver
-        print(name)
-        if name == "a_propose_yes":
-            driver.find_element(By.ID, name[2]).click()
-        else:  # Если нет
-            driver.find_element(By.ID, name[2]).click()
-            return driver.find_element(by=By.CLASS_NAME,
-                                       value="sub-bubble-propose").text  # Желаете ли вы продолжить?
+    def f(self):
+        sleep(3)
+        self.driver.find_element(By.CLASS_NAME, value="proposal-answers"
+                                 ).find_element(By.ID, "a_propose_no").click()
+        sleep(3)
+        self.driver.find_element(By.CLASS_NAME, value="proposal-answers"
+                                 ).find_element(By.ID, "a_continue_yes").click()
 
-    def next(self, name):
-        if name == "a_propose_yes":
-            driver.find_element(By.ID, name).click()
-            self.question()
-        else:
-            driver.quit()
+
+class Picture:
+    def __init__(self):
+        self.chrome_options = Options()
+        self.chrome_options.add_argument("--headless")  # Скрытый режим браузера
+        self.driver = webdriver.Chrome(options=self.chrome_options)  # открываем окно браузера в скрытом режиме
+        # self.driver = webdriver.Chrome()
 
     def png(self, text):
-        driver = webdriver.Chrome()
-        m = "Картинка не найдена"
-        driver.get("https://yandex.ru/")
-        search = driver.find_element(by=By.XPATH, value='//*[@id="text"]')
+        self.driver.get("https://yandex.ru/")
+        try:
+            search = self.driver.find_element(by=By.XPATH, value='//*[@id="text"]')
+        except common.exceptions.NoSuchElementException:  # Если вылезла капча
+            return "Вы словили капчу"
         search.send_keys(text)
         search.submit()
-        sleep(2)
-        driver.find_elements(by=By.CLASS_NAME, value="service__name")[1].click()
-        sleep(5)
-        driver.switch_to.window(driver.window_handles[1])
-        v = driver.find_elements(by=By.CSS_SELECTOR, value="div.serp-item__preview")[1:]
+        sleep(3)
+        self.driver.find_elements(by=By.CLASS_NAME, value="service__name")[1].click()
+        sleep(3)
+        self.driver.switch_to.window(self.driver.window_handles[1])
+        v = self.driver.find_elements(by=By.CSS_SELECTOR, value="div.serp-item__preview")
         try:
             m = v[random.randint(0, len(v))].find_element(by=By.TAG_NAME, value="img"
                                                           ).get_attribute('src')
-        except IndexError:
-            driver.quit()
-        driver.quit()
+        except IndexError:  # Если картинок не найденовы
+            self.driver.quit()
+            return "Картинка не найдена"
+        print(m)
+        self.driver.quit()
         return m
